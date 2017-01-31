@@ -13,7 +13,7 @@ end
 def get_product_code
   puts "Please enter product code: "
   product_code = gets.chomp
-  until valid_input(product_code)
+  until valid_input?(product_code)
     puts "Please enter a valid product code format (ie. S12_1234):"
     product_code = gets.chomp
   end
@@ -38,31 +38,36 @@ def create_new_product(conn, new_product_info)
   new_product.save(conn)
 end
 
-def check_for_product
-  conn = PG.connect(dbname: 'products_database')
+def check_for_product(conn)
   puts "Enter the name of the product you would like to see: "
   name_to_search = gets.chomp.downcase
-  find_product = conn.exec('SELECT * FROM products WHERE name.downcase.include? name_to_search')
+  find_product = conn.exec_params('SELECT * FROM products WHERE LOWER(name) LIKE $1', ["%#{name_to_search}%"])
   if find_product == 0
     puts "No such product exists."
   else
-    puts "Here's the product information #{find_product}"
+    puts "Here's the product information:"
+    find_product.each do |row|
+      p Product.new(row)
+    end
   end
 end
 
 def main
-  conn = PG.connect(dbname: 'product_data')
+  conn = PG.connect(dbname: 'products_database')
 
-  new_product_info = get_new_product_info
+  ProductLine.create_table
 
-  create_new_product(conn, new_product_info)
+  Product.create_table
 
-  check_for_product
+  # new_product_info = get_new_product_info
+  #
+  # create_new_product(conn, new_product_info)
+
+  check_for_product(conn)
 
   conn.close
 end
 
-conn.close
 main if __FILE__ == $PROGRAM_NAME
 
 ########  UPDATE EXISTING PRODUCT################################

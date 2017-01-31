@@ -1,16 +1,26 @@
 require 'pg'
 require 'csv'
+require_relative 'product_line'
 
 class Product
   attr_reader :id, :product_code, :name, :product_line, :description, :retail_price
 
   def initialize(row)
-    @id = nil
-    @product_code = row[0]
-    @name = row[1]
-    @product_line = ProductLine.find_by_name(row[2]) ### find_by_name is both a Product class method and Productline class method?  Why is ProductLine used here?  What is row[2]?
-    @description = row[5]
-    @retail_price = row[8].to_f
+    if row.class == CSV::Row
+      @id = nil
+      @product_code = row[0]
+      @name = row[1]
+      @product_line = ProductLine.find_by_name(row[2]) ### find_by_name is both a Product class method and Productline class method. What is row[2] name or product_line?
+      @description = row[5]
+      @retail_price = row[8].to_f
+    else
+      @id = row['id']
+      @product_code = row['product_code']
+      @name = row['name']
+      @product_line = ProductLine.find_by_name(row['product_line'])
+      @description = row['description']
+      @retail_price = row['retail_price']
+    end
   end
 
   def self.create_table
@@ -25,27 +35,32 @@ class Product
       product = Product.new(row)
       product.save(conn)
     end
+
     conn.close
   end
 
   def save(conn)
-    no_id? insert_new : update
+    # has_no_id? ? insert_new : update
+    if has_no_id?
+      insert_new(conn)
+    else
+      update(conn)
+    end
   end
 
-  def no_id?
+  def has_no_id?
     @id.nil?
   end
 
   def insert_new(conn)
-    # setting var results = new row, does this also insert into table. Is results just the RETURNUNG id value or an array or hash of all values?
-    results = conn.exec_params('INSERT INTO products (product_code, name, product_line, description, retail_price) VALUES ($1, $2, $3, $4, $5) RETURNING id', [@product_code, @name, @product_line, @description, @retail_price])
+    results = conn.exec_params('INSERT INTO products (product_code, name, product_line, description, retail_price) VALUES ($1, $2, $3, $4, $5) RETURNING id', [@product_code, @name, @product_line.name, @description, @retail_price])
 
     new_row = results[0] # Is results[0] just the id or all values of row?
     @id = new_row['id'].to_i
   end
 
   def update(conn)
-    conn.exec_params('UPDATE products SET product_code = $1, name = $2, product_line = $3, description = $4, retail_price = $5 WHERE id = $6',[@product_code, @name, @product_line, @description, @retail_price, @id]
+    conn.exec_params('UPDATE products SET product_code = $1, name = $2, product_line = $3, description = $4, retail_price = $5 WHERE id = $6',[@product_code, @name, @product_line, @description, @retail_price, @id])
   end
 
   def self.find_by_name(name)

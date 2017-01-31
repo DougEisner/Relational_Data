@@ -11,27 +11,30 @@ class ProductLine
   end
 
   def self.create_table
-    conn = PG.connect(bdname: 'products_database')
+    conn = PG.connect(dbname: 'products_database')
     conn.exec('SET client_min_messages TO WARNING')
     conn.exec('DROP TABLE IF EXISTS product_lines')
 
     conn.exec('CREATE TABLE IF NOT EXISTS product_lines (id serial primary key not null, name varchar, description text)')
 
-    rows = CSV.readlines('data/product_lines_data', headers: true, skip_blanks: true, quote_char:"'" )
+    rows = CSV.readlines('data/product_lines_data.csv', headers: true, skip_blanks: true, quote_char:"'" )
 
     rows.each do |row|
       product_line = ProductLine.new(row)
       product_line.save(conn)
     end
+
+    conn.close
   end
 
-  def save
+  def save(conn)
     conn.exec('INSERT INTO product_lines (name, description) VALUES ($1, $2)', [@name, @description])
   end
 
   def self.find_by_name(name)
-    conn.PG.connect(dbname: 'products_database')
+    conn = PG.connect(dbname: 'products_database')
     results = conn.exec('SELECT * FROM product_lines WHERE name = $1', [name])
+    conn.close
 
     return nil if results.num_tuples.zero?
 
@@ -39,7 +42,7 @@ class ProductLine
     name = row['name']
     description = row['description']
 
-    ProductLine.new[name, description]
+    ProductLine.new([name, description])
   end
 
 end
